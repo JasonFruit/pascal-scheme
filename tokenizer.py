@@ -22,15 +22,17 @@ class Tokenizer(object):
         self.acc = []
     def handle_char(self):
         c = self.code[self.pos]
-        if c == _string_delim:
-            if self.in_string and self._prev_char() != _escape_char:
+        if self.in_string:
+            if c == _string_delim and self._prev_char() != _escape_char:
                 self.acc.append(c)
                 self._maybe_add_token()
                 self.in_string = False
-            elif not self.in_string:
-                self._maybe_add_token()
+            else:
                 self.acc.append(c)
-                self.in_string = True
+        elif c == _string_delim:
+            self._maybe_add_token()
+            self.acc.append(c)
+            self.in_string = True
         elif c in _delims:
             if self.in_string:
                 self.acc.append(c)

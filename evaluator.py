@@ -1,12 +1,17 @@
 from tokenizer import Tokenizer
 from parser import Parser, SchemeData, SchemeList
 
+null = SchemeData("null", None)
+
 class Scope(dict):
     def __init__(self, parent):
         dict.__init__(self)
         self.parent = parent
     def set(self, name, value):
-        self[name.value] = value
+        if name.type_ == "symbol":
+            self[name.value] = value
+        else:
+            raise Exception("Scheme exception: invalid name %s." % name)
     def look_up(self, name):
         if name.type_ != "symbol":
             raise Exception("Scheme exception: invalid name %s." % name)
@@ -21,25 +26,35 @@ class Scope(dict):
 class SchemeFunction(object):
     pass
 
-class BuiltInFunction(SchemeFunction):
+    
+class BuiltInFunction(SchemeData, SchemeFunction):
     def __init__(self, f):
+        SchemeData.__init__(self, "closure", f)
         self.f = f
         
     def __call__(self, args, scope):
         return self.f(args, scope)
 
+    def __repr__(self):
+        return "closure: built-in-function"
+
     
-class UserDefinedFunction(SchemeFunction):
+class UserDefinedFunction(SchemeData, SchemeFunction):
     def __init__(self, form, arg_names):
+        SchemeData.__init__(self, "closure", form)
         self.form = form
         self.arg_names = arg_names
+
+    def __repr__(self):
+        return "(lambda (%s) %s)" % (
+            " ".join([repr(arg) for arg in self.arg_names]),
+            self.form)
         
 
 class Evaluator(object):
     def __init__(self):
-        # scope = Scope(None)
         self.global_scope = Scope(None)
-        self._null = SchemeData("null", None)
+        null = SchemeData("null", None)
         
     def _is_atom(self, form):
         return form.type_ in ["string", "number", "boolean"]
@@ -49,7 +64,7 @@ class Evaluator(object):
     
     def eval(self, form, scope=None):
 
-        if not scope:
+        if scope == None:
             scope = self.global_scope
 
         if self._is_atom(form):
@@ -68,7 +83,7 @@ class Evaluator(object):
                 
                 else: # #f
                     if len(form) == 2:
-                        return self._null
+                        return null
                     else:
                         return self.eval(form[3], scope)
 
@@ -101,11 +116,11 @@ class Evaluator(object):
                     if self.eval(condition, scope):
                         return self.eval(subform, scope)
 
-                return self._null
+                return null
             
             elif init == "begin":
                 
-                retval = self._null
+                retval = null
 
                 for subform in form[1:]:
                     retval = self.eval(subform, scope)
@@ -114,7 +129,7 @@ class Evaluator(object):
             
             elif init == "let":
                 
-                retval = self._null
+                retval = null
                 
                 scope = Scope(scope)
 
@@ -132,7 +147,7 @@ class Evaluator(object):
 
             elif init == "let*":
 
-                retval = self._null
+                retval = null
                 
                 scope = Scope(scope)
 
@@ -150,11 +165,11 @@ class Evaluator(object):
 
                 # function call
                 
-                retval = self._null
+                retval = null
 
                 scope = Scope(scope)
 
-                fn = scope.look_up(form[0])
+                fn = self.eval(form[0], scope)
 
                 if not isinstance(fn, SchemeFunction):
                     raise Exception("Scheme exception: %s is not a function." % form[0])
@@ -162,10 +177,10 @@ class Evaluator(object):
                 values = [self.eval(frm, scope)
                           for frm in form[1:]]
 
-                try:
+                if isinstance(fn, BuiltInFunction):
                     retval = fn(values, scope)
                     
-                except TypeError: #not a built-in function
+                else: #not a built-in function
                     
                     if len(values) != len(fn.arg_names):
                         raise Exception("Scheme exception: function %s takes %s arguments; %s provided." %
@@ -174,7 +189,7 @@ class Evaluator(object):
                     for i in range(len(values)):
                         scope.set(fn.arg_names[i], values[i])
 
-                    retval = self.eval(fn.func_form, scope)
+                    retval = self.eval(fn.form, scope)
 
                 scope = scope.parent
 
@@ -188,23 +203,40 @@ if __name__ == "__main__":
     p = Parser()
     e = Evaluator()
 
+    def show_scope_fn(args, scope):
+        if args:
+            indent = args[0]
+        else:
+            indent = ""
+            
+        for k in scope.keys():
+            print(indent, k, ": ", scope[k])
+        if scope.parent:
+            show_scope_fn([indent + "    "], scope.parent)
+
+        return null
+
+    show_scope = BuiltInFunction(show_scope_fn)
+
     def display_fn(args, scope):
-        sys.stdout.write(" ".join([repr(arg) for arg in args]))
-        return e._null
+        arg_vals = [repr(arg) for arg in args]
+        sys.stdout.write(" ".join(arg_vals))
+        return null
 
     display = BuiltInFunction(display_fn)
 
     def newline_fn(args, scope):
         sys.stdout.write("\n")
-        return e._null
+        return null
 
     newline = BuiltInFunction(newline_fn)
 
     def eval_fn(args, scope):
-        return e.eval(args[0])
+        return e.eval(args[0], scope)
 
     eval = BuiltInFunction(eval_fn)
 
+    e.add_builtin("show-scope", show_scope)
     e.add_builtin("display", display)
     e.add_builtin("newline", newline)
     e.add_builtin("eval", eval)
