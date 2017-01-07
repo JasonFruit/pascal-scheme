@@ -118,3 +118,19 @@ def gensym(args, scope):
 
 builtins["gensym"] = BuiltInFunction(gensym)
 
+def type_fn(typ):
+    def f(args, scope):
+        return SchemeData("boolean",
+                          args[0].type_ == typ)
+    return f
+
+builtins["symbol?"] = BuiltInFunction(type_fn("symbol"))
+builtins["string?"] = BuiltInFunction(type_fn("string"))
+builtins["number?"] = BuiltInFunction(type_fn("number"))
+builtins["list?"] = BuiltInFunction(type_fn("list"))
+builtins["closure?"] = BuiltInFunction(type_fn("closure"))
+builtins["boolean?"] = BuiltInFunction(type_fn("boolean"))
+builtins["null?"] = BuiltInFunction(type_fn("null"))
+builtins["not"] = BuiltInFunction(lambda args, scope:
+                                  SchemeData("boolean",
+                                             not args[0].value))

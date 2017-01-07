@@ -6,9 +6,7 @@
   (if (= n 0) 1
       (* n (fac (- n 1)))))
 
-(display (gensym))
-(newline)
-(display (map fac (int-list 1 10)))
-(newline)
-(display (quote asdf))
-(newline)
+(display (null? (display (symbol? (gensym)))))
+(display (list? (map fac (int-list 1 10))))
+(display (not (string? (quote asdf))))
+(display (string? "asdf"))
