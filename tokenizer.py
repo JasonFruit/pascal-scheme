@@ -9,6 +9,7 @@ class Tokenizer(object):
     def initialize(self, code):
         self.code = code
         self.in_string = False
+        self.in_comment = False
         self.tokens = []
         self.acc = []
         self.pos = 0
@@ -22,7 +23,10 @@ class Tokenizer(object):
         self.acc = []
     def handle_char(self):
         c = self.code[self.pos]
-        if self.in_string:
+        if self.in_comment:
+            if c == "\n":
+                self.in_comment = False
+        elif self.in_string:
             if c == _string_delim and self._prev_char() != _escape_char:
                 self.acc.append(c)
                 self._maybe_add_token()
@@ -42,6 +46,9 @@ class Tokenizer(object):
                 self._maybe_add_token()
         elif c in _white:
             self._maybe_add_token()
+        elif c == ";":
+            self._maybe_add_token()
+            self.in_comment = True
         else:
             self.acc.append(c)
             

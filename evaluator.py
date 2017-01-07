@@ -1,7 +1,5 @@
 from tokenizer import Tokenizer
-from parser import Parser, SchemeData, SchemeList
-
-null = SchemeData("null", None)
+from parser import Parser, SchemeData, SchemeList, SchemeFunction, BuiltInFunction, UserDefinedFunction, null
 
 class Scope(dict):
     def __init__(self, parent):
@@ -23,33 +21,6 @@ class Scope(dict):
             else:
                 raise Exception("Scheme exception: symbol %s is undefined." % name)
     
-class SchemeFunction(object):
-    pass
-
-    
-class BuiltInFunction(SchemeData, SchemeFunction):
-    def __init__(self, f):
-        SchemeData.__init__(self, "closure", f)
-        self.f = f
-        
-    def __call__(self, args, scope):
-        return self.f(args, scope)
-
-    def __repr__(self):
-        return "closure: built-in-function"
-
-    
-class UserDefinedFunction(SchemeData, SchemeFunction):
-    def __init__(self, form, arg_names):
-        SchemeData.__init__(self, "closure", form)
-        self.form = form
-        self.arg_names = arg_names
-
-    def __repr__(self):
-        return "(lambda (%s) %s)" % (
-            " ".join([repr(arg) for arg in self.arg_names]),
-            self.form)
-        
 
 class Evaluator(object):
     def __init__(self):
@@ -198,49 +169,28 @@ class Evaluator(object):
 
 if __name__ == "__main__":
     import sys, codecs
-
+    from init import builtins
+    
     t = Tokenizer()
     p = Parser()
     e = Evaluator()
-
-    def show_scope_fn(args, scope):
-        if args:
-            indent = args[0]
-        else:
-            indent = ""
-            
-        for k in scope.keys():
-            print(indent, k, ": ", scope[k])
-        if scope.parent:
-            show_scope_fn([indent + "    "], scope.parent)
-
-        return null
-
-    show_scope = BuiltInFunction(show_scope_fn)
-
-    def display_fn(args, scope):
-        arg_vals = [repr(arg) for arg in args]
-        sys.stdout.write(" ".join(arg_vals))
-        return null
-
-    display = BuiltInFunction(display_fn)
-
-    def newline_fn(args, scope):
-        sys.stdout.write("\n")
-        return null
-
-    newline = BuiltInFunction(newline_fn)
 
     def eval_fn(args, scope):
         return e.eval(args[0], scope)
 
     eval = BuiltInFunction(eval_fn)
 
-    e.add_builtin("show-scope", show_scope)
-    e.add_builtin("display", display)
-    e.add_builtin("newline", newline)
     e.add_builtin("eval", eval)
 
+    for key in builtins.keys():
+        e.add_builtin(key, builtins[key])
+
+    with codecs.open("init.scm", "r", "utf-8") as init_file:
+        tokens = t.tokenize(init_file.read())
+        tree = p.parse(tokens)
+        for form in tree:
+            e.eval(form)
+        
     try:
         code = codecs.open(sys.argv[1], "r", "utf-8").read()
     except:

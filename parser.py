@@ -24,6 +24,36 @@ class SchemeData(object):
         else:
             return "%s: %s" % (self.type_, self.value)
 
+null = SchemeData("null", None)
+
+class SchemeFunction(SchemeData):
+    def __init__(self, body):
+        SchemeData.__init__(self, "closure", body)
+
+    
+class BuiltInFunction(SchemeFunction):
+    def __init__(self, f):
+        SchemeFunction.__init__(self, f)
+        self.f = f
+        
+    def __call__(self, args, scope):
+        return self.f(args, scope)
+
+    def __repr__(self):
+        return "closure: built-in-function"
+
+    
+class UserDefinedFunction(SchemeFunction):
+    def __init__(self, form, arg_names):
+        SchemeFunction.__init__(self, form)
+        self.form = form
+        self.arg_names = arg_names
+
+    def __repr__(self):
+        return "(lambda (%s) %s)" % (
+            " ".join([repr(arg) for arg in self.arg_names]),
+            self.form)
+        
 class SchemeList(list, SchemeData):
     def __init__(self):
         list.__init__(self)
